@@ -46,13 +46,15 @@ class Perceptron(LinearModel):
         y_i (scalar): the gold label for that example
         other arguments are ignored
         """
-        raise NotImplementedError # Q1.1 (a)
+        y_pred = np.argmax(np.dot(self.W, x_i)) # Dot product entre input e weights para calcular o y_pred
+
+        if y_pred != y_i: # Errou
+            self.W[y_i] += x_i #Aumenta a label certa
+            self.W[y_pred] -= x_i #Diminui a predicted 
 
 
 class LogisticRegression(LinearModel):
     def update_weight(self, x_i, y_i, learning_rate=0.001, l2_penalty=0.0, **kwargs):
-        
-        
         """
         x_i (n_features): a single training example
         y_i: the gold label for that example
