@@ -59,6 +59,12 @@ class LogisticRegression(LinearModel):
         y_i: the gold label for that example
         learning_rate (float): keep it at the default value for your plots
         """
+        #  Gradient descent w <- w * η (∂L(w)/∂w)
+
+        gradient = 
+
+
+
         raise NotImplementedError # Q1.2 (a,b)
 
 
