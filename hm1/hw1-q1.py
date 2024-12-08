@@ -49,7 +49,8 @@ class Perceptron(LinearModel):
         y_pred = np.argmax(np.dot(self.W, x_i)) # Dot product entre input e weights para calcular o y_pred
 
         if y_pred != y_i: # Errou
-            self.W = self.W + y_i * x_i
+            self.W[y_i] +=  x_i #Pode-se adicionar learning rate manualmente mas não fez grande diferença
+            self.W[y_pred] -=  x_i
 
 
 class LogisticRegression(LinearModel):
