@@ -76,12 +76,23 @@ class LogisticRegression(LinearModel):
 
 
 class MLP(object):
-    def __init__(self, n_classes, n_features, hidden_size=1):
+    def __init__(self, n_classes, n_features, hidden_size):
         # Initialize an MLP with a single hidden layer.
-        self.hidden_size = 1
+        self.hidden_size= hidden_size
+        self.n_classes = n_classes #outputs logo 1 node por classe
+        self.n_features = n_features # inputs
+        self.weights = []
+        self.bias = []
 
+        #Initialize weights and biases for initial layer (initial -> hidden all weights and biases covered)
+        self.bias.append(np.zeros(n_features, hidden_size))
+        self.weights.append(np.random.randn(n_features,hidden_size))
 
-        raise NotImplementedError # Q1.3 (a)
+        #Initialize weights and biases for hidden layer (hidden -> output all weights and biases covered)
+        self.bias.append(np.full((hidden_size,n_classes),0.1))
+        self.weights.append(np.random.randn(n_features,n_classes))
+        
+        
 
     def predict(self, X):
         # Compute the forward pass of the network. At prediction time, there is
