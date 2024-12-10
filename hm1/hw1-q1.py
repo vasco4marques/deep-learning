@@ -60,22 +60,26 @@ class LogisticRegression(LinearModel):
         y_i: the gold label for that example
         learning_rate (float): keep it at the default value for your plots
         """
-        label_scores = np.expand_dims(self.W.dot(x_i), axis = 1)
+        label_scores = np.expand_dims(np.dot(self.W,x_i), axis = 1) 
 
         y_one_hot = np.zeros((np.size(self.W, 0),1))
         y_one_hot[y_i] = 1
 
         label_probabilities = np.exp(label_scores) / np.sum(np.exp(label_scores))
 
-        gradient = (y_one_hot - label_probabilities).dot(np.expand_dims(x_i, axis = 1).T)
+        gradient = (y_one_hot - label_probabilities).dot(np.expand_dims(x_i, axis = 1).T) 
 
         if l2_penalty > 0:
-            gradient += l2_penalty * self.W
+            gradient += l2_penalty * (np.sum(self.W**2))
 
         self.W = self.W + (learning_rate * gradient) 
 
 
 class MLP(object):
+
+    #Hidden layer activation - ReLU
+    #Output layer activation - Cross-entropy
+    
     def __init__(self, n_classes, n_features, hidden_size):
         # Initialize an MLP with a single hidden layer.
         self.hidden_size= hidden_size
@@ -86,18 +90,40 @@ class MLP(object):
 
         #Initialize weights and biases for initial layer (initial -> hidden all weights and biases covered)
         self.bias.append(np.zeros(n_features, hidden_size))
-        self.weights.append(np.random.randn(n_features,hidden_size))
+        self.weights.append(np.random.normal(0.1,0.1,(n_features,hidden_size)))
 
         #Initialize weights and biases for hidden layer (hidden -> output all weights and biases covered)
-        self.bias.append(np.full((hidden_size,n_classes),0.1))
-        self.weights.append(np.random.randn(n_features,n_classes))
+        self.bias.append(np.zeros(hidden_size,n_classes))
+        self.weights.append(np.random.normal(0.1,0.1,(n_features,n_classes)))
         
-        
+    def reluActivation(x):        
+        for i in range(len(x)):
+            x[i] = max(0,x[i])
 
+        return x
+
+    def softmax(x):
+        return np.exp(x) / np.sum(np.exp(x))
+    
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    def crossEntropy(y, y_hat):
+        # y - correct label index
+        # y_hat - network prediction after softmax
+        
+        return -np.log(y_hat[y])
+        
     def predict(self, X):
         # Compute the forward pass of the network. At prediction time, there is
         # no need to save the values of hidden nodes.
-        raise NotImplementedError # Q1.3 (a)
+
+        z_hidden = np.dot(X, self.weights[0]) + self.bias[0]
+        y_hidden = self.reluActivation(z_hidden)
+        z_hat = np.dot(y_hidden, self.weights[1]) + self.bias[1]    
+        y_hat = self.softmax(z_hat)  
+
+        return z_hidden, y_hidden, z_hat, y_hat
 
     def evaluate(self, X, y):
         """
@@ -109,6 +135,8 @@ class MLP(object):
         n_correct = (y == y_hat).sum()
         n_possible = y.shape[0]
         return n_correct / n_possible
+
+    def back_propagate(self, )
 
     def train_epoch(self, X, y, learning_rate=0.001, **kwargs):
         """
