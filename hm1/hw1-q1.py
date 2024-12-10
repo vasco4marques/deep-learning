@@ -76,8 +76,11 @@ class LogisticRegression(LinearModel):
 
 
 class MLP(object):
-    def __init__(self, n_classes, n_features, hidden_size):
+    def __init__(self, n_classes, n_features, hidden_size=1):
         # Initialize an MLP with a single hidden layer.
+        self.hidden_size = 1
+
+
         raise NotImplementedError # Q1.3 (a)
 
     def predict(self, X):
