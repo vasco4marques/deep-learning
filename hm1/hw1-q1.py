@@ -96,11 +96,13 @@ class MLP(object):
         self.bias.append(np.zeros(hidden_size,n_classes))
         self.weights.append(np.random.normal(0.1,0.1,(n_features,n_classes)))
         
-    def reluActivation(x):        
+    def relu(x):        
         for i in range(len(x)):
             x[i] = max(0,x[i])
-
         return x
+
+    def reluDerivative(x):
+        (x > 0).astype(float)
 
     def softmax(x):
         return np.exp(x) / np.sum(np.exp(x))
@@ -108,22 +110,34 @@ class MLP(object):
     def sigmoid(x):
         return 1 / (1 + np.exp(-x))
 
-    def crossEntropy(y, y_hat):
-        # y - correct label index
-        # y_hat - network prediction after softmax
+    def crossEntropy(self, y_true, y_hat):
+        # y - true label index
+        # y_hat - predicted values
         
-        return -np.log(y_hat[y])
+        # Acho que isto (-np.log(y_hat[y])) não chega, ela está simplificada só para o caso de y_hat ser a label certa mas pode não ser
+        # logo falta o resto 
+
+
+        return -np.log(y_hat[y_true])
         
-    def predict(self, X):
+    def forward(self, X):
         # Compute the forward pass of the network. At prediction time, there is
         # no need to save the values of hidden nodes.
-
         z_hidden = np.dot(X, self.weights[0]) + self.bias[0]
-        y_hidden = self.reluActivation(z_hidden)
+        y_hidden = self.relu(z_hidden)
         z_hat = np.dot(y_hidden, self.weights[1]) + self.bias[1]    
         y_hat = self.softmax(z_hat)  
 
         return z_hidden, y_hidden, z_hat, y_hat
+    
+    
+    def predict(self, X):
+        # Predicts the label using the output of the NN 
+
+        _,_,_,y_hat = self.forward(X)
+    
+        return np.argmax(y_hat, axis = 1)
+        
 
     def evaluate(self, X, y):
         """
