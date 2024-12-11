@@ -7,12 +7,13 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
+import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
 import time
 import utils
 
-
+# Q
 class LogisticRegression(nn.Module):
 
     def __init__(self, n_classes, n_features, **kwargs):
@@ -29,6 +30,7 @@ class LogisticRegression(nn.Module):
         super().__init__()
         # In a pytorch module, the declarations of layers needs to come after
         # the super __init__ line, otherwise the magic doesn't work.
+        self.linear = nn.Linear(n_features, n_classes)
 
     def forward(self, x, **kwargs):
         """
@@ -44,7 +46,7 @@ class LogisticRegression(nn.Module):
         forward pass -- this is enough for it to figure out how to do the
         backward pass.
         """
-        raise NotImplementedError
+        return self.linear(x) # Retornamos a self.linear (raw sem ativação visto que o CrossEntropyLoss aplica softmax automaticamente segundo a documentação)
 
 
 class FeedforwardNetwork(nn.Module):
@@ -63,9 +65,34 @@ class FeedforwardNetwork(nn.Module):
         attributes that each FeedforwardNetwork instance has. Note that nn
         includes modules for several activation functions and dropout as well.
         """
+        
         super().__init__()
-        # Implement me!
-        raise NotImplementedError
+
+        activationLayer = None
+
+        if activation_type == 'tanh':
+            activationLayer = nn.Tanh()
+        elif activation_type == 'relu':
+            activationLayer = nn.ReLU()
+
+        layerStructure = []
+
+        if(layers > 0): # Se hidden_size > 0, então temos hidden layers
+            layerStructure.append(nn.Linear(n_features, hidden_size))
+            layerStructure.append(activationLayer)
+            layerStructure.append(nn.Dropout(dropout))
+
+            for i in range(layers-2):
+                layerStructure.append(nn.Linear(hidden_size, hidden_size))
+                layerStructure.append(activationLayer)
+                layerStructure.append(nn.Dropout(dropout))
+
+            layerStructure.append(nn.Linear(hidden_size, n_classes))
+        
+        else: # Caso contrário, temos apenas a camada de input e output
+            layerStructure.append(nn.Linear(n_features, n_classes))
+
+        self.network = nn.Sequential(*layerStructure) # Cria rede sequencial a partir das camadas de layers
 
     def forward(self, x, **kwargs):
         """
@@ -75,7 +102,9 @@ class FeedforwardNetwork(nn.Module):
         the output logits from x. This will include using various hidden
         layers, pointwise nonlinear functions, and dropout.
         """
-        raise NotImplementedError
+        # Não se aplica nada à rede porque o CrossEntropyLoss já aplica softmax
+        return self.network(x) 
+    
 
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
@@ -96,7 +125,25 @@ def train_batch(X, y, model, optimizer, criterion, **kwargs):
     This function should return the loss (tip: call loss.item()) to get the
     loss as a numerical value that is not part of the computation graph.
     """
-    raise NotImplementedError
+
+    # Zero the gradients
+    optimizer.zero_grad()
+
+    # Forward pass
+    outputs = model(X)
+
+    # Compute the loss
+    sumOfWeights = sum([torch.sum(p ** 2) for p in model.parameters()])
+    loss = criterion(outputs, y) + kwargs.get('l2_decay', 0.0) * sumOfWeights #l2 regularization (l2 value * sum dos parametros ao quadrado)
+
+    # Backward pass
+    loss.backward()
+
+    # Update the parameters
+    optimizer.step()
+
+    return loss.item()
+
 
 
 def predict(model, X):
