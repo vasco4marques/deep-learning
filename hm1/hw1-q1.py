@@ -89,22 +89,26 @@ class MLP(object):
         self.bias = []
 
         #Initialize weights and biases for initial layer (initial -> hidden all weights and biases covered)
-        self.bias.append(np.zeros(n_features, hidden_size))
-        self.weights.append(np.random.normal(0.1,0.1,(n_features,hidden_size)))
+        self.bias.append(np.zeros((hidden_size, 1)))
+        self.weights.append(np.random.normal(0.1,0.1,(hidden_size, n_features)))
 
         #Initialize weights and biases for hidden layer (hidden -> output all weights and biases covered)
-        self.bias.append(np.zeros(hidden_size,n_classes))
-        self.weights.append(np.random.normal(0.1,0.1,(n_features,n_classes)))
+        self.bias.append(np.zeros((n_classes, 1)))
+        self.weights.append(np.random.normal(0.1,0.1,(n_classes, hidden_size)))
         
-    def relu(x):        
-        for i in range(len(x)):
-            x[i] = max(0,x[i])
-        return x
+    def relu(self, x):    
+        return max(0,x)
+
+    def reluNP(self, x):
+        func = np.vectorize(self.relu)
+        return func(x)
 
     def reluDerivative(x):
-        (x > 0).astype(float)
+        for i in range(len(x)):
+            x[i] = (x[i] > 0).astype(float)
+        return x
 
-    def softmax(x):
+    def softmax(self, x):
         return np.exp(x) / np.sum(np.exp(x))
     
     def sigmoid(x):
@@ -119,14 +123,34 @@ class MLP(object):
 
 
         return -np.log(y_hat[y_true])
+
+    def lossGradientAtOutputPreActivation(self, y_hat, y_true):
+        y_one_hot = np.zeros((np.size(self.W, 0),1))
+        y_one_hot[y_true] = 1
+
+
+        return y_hat - y_one_hot
+
+    
         
     def forward(self, X):
         # Compute the forward pass of the network. At prediction time, there is
         # no need to save the values of hidden nodes.
-        z_hidden = np.dot(X, self.weights[0]) + self.bias[0]
-        y_hidden = self.relu(z_hidden)
-        z_hat = np.dot(y_hidden, self.weights[1]) + self.bias[1]    
-        y_hat = self.softmax(z_hat)  
+        print(np.shape(X))
+        print(np.shape(self.weights[0]))
+        print(np.shape(self.weights[1]))
+        print(np.shape(self.bias[0]))
+        print(np.shape(self.bias[1]))
+        z_hidden = np.dot(self.weights[0], np.transpose(X)) + self.bias[0]
+        print(np.shape(z_hidden))
+        y_hidden = self.reluNP(z_hidden)
+        z_hat = np.dot(self.weights[1], y_hidden) + self.bias[1]    
+        y_hat = self.softmax(z_hat)
+
+        print(np.shape(z_hidden))
+        print(np.shape(y_hidden))
+        print(np.shape(z_hat))
+        print(np.shape(y_hat))
 
         return z_hidden, y_hidden, z_hat, y_hat
     
@@ -136,7 +160,7 @@ class MLP(object):
 
         _,_,_,y_hat = self.forward(X)
     
-        return np.argmax(y_hat, axis = 1)
+        return np.argmax(y_hat, axis = 0)
         
 
     def evaluate(self, X, y):
@@ -146,17 +170,59 @@ class MLP(object):
         """
         # Identical to LinearModel.evaluate()
         y_hat = self.predict(X)
+        print(np.shape(y_hat))
         n_correct = (y == y_hat).sum()
         n_possible = y.shape[0]
         return n_correct / n_possible
 
-    def back_propagate(self, )
+    def backPropagate(self, y_hat, z_hat, y_hidden, z_hidden, x, y_true):
+        outputGradient = self.lossGradientAtOutputPreActivation(y_hat, y_true)
+        weightGradient = self.weights
+        biasGradient = self.bias
+
+        weightGradient[1] = np.dot(outputGradient, np.transpose(y_hidden))
+        biasGradient[1] = outputGradient
+
+        hDerivative = np.dot(self.weights[1], outputGradient)
+
+        outputGradient = np.multiply(hDerivative, self.reluDerivative(z_hidden))
+
+        weightGradient[0] = np.dot(outputGradient, np.transpose(x))
+        biasGradient[0] = outputGradient
+
+
 
     def train_epoch(self, X, y, learning_rate=0.001, **kwargs):
         """
         Dont forget to return the loss of the epoch.
         """
-        raise NotImplementedError # Q1.3 (a)
+        losses = []
+        X = np.transpose(X)
+        for i in range(len(X)):
+            z_hidden, y_hidden, z_hat, y_hat = self.forward(X[i])
+
+            losses[i] = self.crossEntropy(y, y_hat)
+
+            outputGradient = self.lossGradientAtOutputPreActivation(y_hat, y)
+            weightGradient = self.weights
+            biasGradient = self.bias
+
+            weightGradient[1] = np.dot(outputGradient, np.transpose(y_hidden))
+            biasGradient[1] = outputGradient
+
+            hDerivative = np.dot(self.weights[1], outputGradient)
+
+            outputGradient = np.multiply(hDerivative, self.reluDerivative(z_hidden))
+
+            weightGradient[0] = np.dot(outputGradient, np.transpose(X[i]))
+            biasGradient[0] = outputGradient
+
+            self.weights[1] += weightGradient[1]*learning_rate
+            self.weights[0] += weightGradient[0]*learning_rate
+            self.bias[1] += biasGradient[1]*learning_rate
+            self.bias[0] += biasGradient[0]*learning_rate
+
+        return np.sum(losses)/len(losses)
 
 
 def plot(epochs, train_accs, val_accs, filename=None):
