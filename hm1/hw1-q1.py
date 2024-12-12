@@ -120,8 +120,7 @@ class MLP(object):
         # Acho que isto (-np.log(y_hat[y])) não chega, ela está simplificada só para o caso de y_hat ser a label certa mas pode não ser
         # logo falta o resto 
 
-
-        return -np.log(y_hat[y_true])
+        return -np.log(y_hat[y_true]) 
 
     def lossGradientAtOutputPreActivation(self, y_hat, y_true):
         y_one_hot = np.zeros(np.size(self.weights[1],0)).reshape(-1,1)
@@ -137,11 +136,13 @@ class MLP(object):
             rs = X.reshape(-1,1)
             X = rs
 
+
         z_hidden = np.dot(self.weights[0], X) + self.bias[0]
         y_hidden = self.relu(z_hidden)
         z_hat = np.dot(self.weights[1], y_hidden) + self.bias[1]    
         y_hat = self.softmax(z_hat)
 
+        
         return z_hidden, y_hidden, z_hat, y_hat
     
     
@@ -185,11 +186,13 @@ class MLP(object):
         """
         Dont forget to return the loss of the epoch.
         """
+        
         losses = []
         for i in range(len(X)):
             z_hidden, y_hidden, z_hat, y_hat = self.forward(X[i])
 
-            losses.append(self.crossEntropy(y, y_hat))
+
+            losses.append(self.crossEntropy(y[i], y_hat))
 
             outputGradient = self.lossGradientAtOutputPreActivation(y_hat, y)
             weightGradient = self.weights
@@ -205,6 +208,34 @@ class MLP(object):
             weightGradient[0] = np.dot(outputGradient, np.transpose(X[i].reshape(-1,1)))
             biasGradient[0] = outputGradient
 
+            #Debug insano
+
+            if np.isnan(weightGradient[0]).any():
+                print( 'weight gradient 0: nan')
+                exit()
+            else:
+                print( 'weight gradient 0: not nan')
+
+            if np.isnan(weightGradient[1]).any():
+                print( 'weight gradient 1: nan')
+                exit()
+            else:
+                print( 'weight gradient 1: not nan')
+
+            if np.isnan(biasGradient[0]).any():
+                print( 'bias gradient 0: nan')
+                exit()
+            else:
+                print( 'bias gradient 0: not nan')
+
+            if np.isnan(biasGradient[1]).any():
+                print( 'bias gradient 1: nan')
+                exit()
+            else:
+                print( 'bias gradient 1: not nan')
+           
+            #Debug
+            
             self.weights[1] += weightGradient[1]*learning_rate
             self.weights[0] += weightGradient[0]*learning_rate
             self.bias[1] += biasGradient[1]*learning_rate
