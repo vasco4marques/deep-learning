@@ -77,26 +77,26 @@ class LogisticRegression(LinearModel):
 
 class MLP(object):
 
-    #Hidden layer activation - ReLU
-    #Output layer activation - Cross-entropy
-    
+    # Hidden layer activation - ReLU
+    # Output layer activation - Cross-entropy
+
     def __init__(self, n_classes, n_features, hidden_size):
         # Initialize an MLP with a single hidden layer.
-        self.hidden_size= hidden_size
-        self.n_classes = n_classes #outputs logo 1 node por classe
-        self.n_features = n_features # inputs
+        self.hidden_size = hidden_size
+        self.n_classes = n_classes  # outputs logo 1 node por classe
+        self.n_features = n_features  # inputs
         self.weights = []
         self.bias = []
 
-        #Initialize weights and biases for initial layer (initial -> hidden all weights and biases covered)
+        # Initialize weights and biases for initial layer (initial -> hidden all weights and biases covered)
         self.bias.append(np.zeros((hidden_size, 1)))
-        self.weights.append(np.random.normal(0.1,0.1,(hidden_size, n_features)))
+        self.weights.append(np.random.randn(hidden_size, n_features) * np.sqrt(1.0 / n_features))
 
-        #Initialize weights and biases for hidden layer (hidden -> output all weights and biases covered)
+        # Initialize weights and biases for hidden layer (hidden -> output all weights and biases covered)
         self.bias.append(np.zeros((n_classes, 1)))
-        self.weights.append(np.random.normal(0.1,0.1,(n_classes, hidden_size)))
-        
-    def relu(self, x):    
+        self.weights.append(np.random.randn(n_classes, hidden_size) * np.sqrt(1.0 / hidden_size))
+
+    def relu(self, x):
         return np.maximum(0, x)
 
     def reluDerivative(self, x):
@@ -109,50 +109,41 @@ class MLP(object):
             X = X.reshape(-1, 1)
         exp_X = np.exp(X - np.max(X, axis=0, keepdims=True))  # Subtract max for numerical stability
         return exp_X / np.sum(exp_X, axis=0, keepdims=True)
-    
+
     def sigmoid(x):
         return 1 / (1 + np.exp(-x))
 
     def crossEntropy(self, y_true, y_hat):
         # y - true label index
         # y_hat - predicted values
-        
-        # Acho que isto (-np.log(y_hat[y])) não chega, ela está simplificada só para o caso de y_hat ser a label certa mas pode não ser
-        # logo falta o resto 
 
-        return -np.log(y_hat[y_true]) 
+        return -np.log(y_hat[y_true] + 1e-10)
 
     def lossGradientAtOutputPreActivation(self, y_hat, y_true):
-        y_one_hot = np.zeros(np.size(self.weights[1],0)).reshape(-1,1)
+        y_one_hot = np.zeros(np.size(self.weights[1], 0)).reshape(-1, 1)
         y_one_hot[y_true] = 1
         return y_hat - y_one_hot
 
-    
-        
     def forward(self, X):
         # Compute the forward pass of the network. At prediction time, there is
         # no need to save the values of hidden nodes.
         if X.ndim == 1:
-            rs = X.reshape(-1,1)
+            rs = X.reshape(-1, 1)
             X = rs
-
 
         z_hidden = np.dot(self.weights[0], X) + self.bias[0]
         y_hidden = self.relu(z_hidden)
-        z_hat = np.dot(self.weights[1], y_hidden) + self.bias[1]    
+        z_hat = np.dot(self.weights[1], y_hidden) + self.bias[1]
         y_hat = self.softmax(z_hat)
 
-        
         return z_hidden, y_hidden, z_hat, y_hat
-    
-    
-    def predict(self, X):
-        # Predicts the label using the output of the NN 
 
-        _,_,_,y_hat = self.forward(np.transpose(X))
-    
-        return np.argmax(y_hat, axis = 0)
-        
+    def predict(self, X):
+        # Predicts the label using the output of the NN
+
+        _, _, _, y_hat = self.forward(np.transpose(X))
+
+        return np.argmax(y_hat, axis=0)
 
     def evaluate(self, X, y):
         """
@@ -180,17 +171,19 @@ class MLP(object):
         weightGradient[0] = np.dot(outputGradient, np.transpose(x))
         biasGradient[0] = outputGradient
 
-
-
-    def train_epoch(self, X, y, learning_rate=0.001, **kwargs):
+    def train_epoch(self, X, y, learning_rate=0.01, **kwargs):
         """
-        Dont forget to return the loss of the epoch.
+        Don't forget to return the loss of the epoch.
         """
-        
+
         losses = []
+        clip_value = 10.0  # Gradient clipping threshold
         for i in range(len(X)):
             z_hidden, y_hidden, z_hat, y_hat = self.forward(X[i])
 
+            if np.isinf(z_hidden).any():
+                print(f'Ending after forward pass due to inf values in hidden layer in epoch {i}')
+                exit()
 
             losses.append(self.crossEntropy(y[i], y_hat))
 
@@ -205,43 +198,21 @@ class MLP(object):
 
             outputGradient = np.multiply(hDerivative, self.reluDerivative(z_hidden))
 
-            weightGradient[0] = np.dot(outputGradient, np.transpose(X[i].reshape(-1,1)))
+            weightGradient[0] = np.dot(outputGradient, np.transpose(X[i].reshape(-1, 1)))
             biasGradient[0] = outputGradient
 
-            #Debug insano
+            weightGradient[1] = np.clip(weightGradient[1], -clip_value, clip_value)
+            weightGradient[0] = np.clip(weightGradient[0], -clip_value, clip_value)
+            biasGradient[1] = np.clip(biasGradient[1], -clip_value, clip_value)
+            biasGradient[0] = np.clip(biasGradient[0], -clip_value, clip_value)
 
-            if np.isnan(weightGradient[0]).any():
-                print( 'weight gradient 0: nan')
-                exit()
-            else:
-                print( 'weight gradient 0: not nan')
 
-            if np.isnan(weightGradient[1]).any():
-                print( 'weight gradient 1: nan')
-                exit()
-            else:
-                print( 'weight gradient 1: not nan')
+            self.weights[1] += weightGradient[1] * learning_rate
+            self.weights[0] += weightGradient[0] * learning_rate
+            self.bias[1] += biasGradient[1] * learning_rate
+            self.bias[0] += biasGradient[0] * learning_rate
 
-            if np.isnan(biasGradient[0]).any():
-                print( 'bias gradient 0: nan')
-                exit()
-            else:
-                print( 'bias gradient 0: not nan')
-
-            if np.isnan(biasGradient[1]).any():
-                print( 'bias gradient 1: nan')
-                exit()
-            else:
-                print( 'bias gradient 1: not nan')
-           
-            #Debug
-            
-            self.weights[1] += weightGradient[1]*learning_rate
-            self.weights[0] += weightGradient[0]*learning_rate
-            self.bias[1] += biasGradient[1]*learning_rate
-            self.bias[0] += biasGradient[0]*learning_rate
-
-        return np.sum(losses)/len(losses)
+        return np.sum(losses) / len(losses)
 
 
 def plot(epochs, train_accs, val_accs, filename=None):
