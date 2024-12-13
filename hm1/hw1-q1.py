@@ -90,28 +90,23 @@ class MLP(object):
 
         # Initialize weights and biases for initial layer (initial -> hidden all weights and biases covered)
         self.bias.append(np.zeros((hidden_size, 1)))
-        self.weights.append(np.random.randn(hidden_size, n_features) * np.sqrt(1.0 / n_features))
+        self.weights.append(np.random.randn(hidden_size, n_features) * np.sqrt(2.0 / n_features))
 
         # Initialize weights and biases for hidden layer (hidden -> output all weights and biases covered)
         self.bias.append(np.zeros((n_classes, 1)))
-        self.weights.append(np.random.randn(n_classes, hidden_size) * np.sqrt(1.0 / hidden_size))
+        self.weights.append(np.random.randn(n_classes, hidden_size) * np.sqrt(2.0 / hidden_size))
 
     def relu(self, x):
         return np.maximum(0, x)
 
     def reluDerivative(self, x):
-        for i in range(len(x)):
-            x[i] = (x[i] > 0).astype(float)
-        return x
+        return (x > 0).astype(float)
 
     def softmax(self, X):
         if X.ndim == 1:
             X = X.reshape(-1, 1)
         exp_X = np.exp(X - np.max(X, axis=0, keepdims=True))  # Subtract max for numerical stability
         return exp_X / np.sum(exp_X, axis=0, keepdims=True)
-
-    def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
 
     def crossEntropy(self, y_true, y_hat):
         # y - true label index
@@ -157,62 +152,48 @@ class MLP(object):
         return n_correct / n_possible
 
     def backPropagate(self, y_hat, z_hat, y_hidden, z_hidden, x, y_true):
+        # Compute the gradient of the loss at the output
         outputGradient = self.lossGradientAtOutputPreActivation(y_hat, y_true)
-        weightGradient = self.weights
-        biasGradient = self.bias
 
-        weightGradient[1] = np.dot(outputGradient, np.transpose(y_hidden))
-        biasGradient[1] = outputGradient
+        # Gradients for weights and biases at the output layer
+        weightGradient_output = np.dot(outputGradient, y_hidden.T)
+        biasGradient_output = outputGradient
 
-        hDerivative = np.dot(self.weights[1], outputGradient)
+        # Backpropagate through the hidden layer
+        hiddenGradient = np.dot(self.weights[1].T, outputGradient) * self.reluDerivative(z_hidden)
 
-        outputGradient = np.multiply(hDerivative, self.reluDerivative(z_hidden))
+        # Gradients for weights and biases at the hidden layer
+        weightGradient_hidden = np.dot(hiddenGradient, x.T)
+        biasGradient_hidden = hiddenGradient
 
-        weightGradient[0] = np.dot(outputGradient, np.transpose(x))
-        biasGradient[0] = outputGradient
+        # Return all gradients
+        return weightGradient_hidden, biasGradient_hidden, weightGradient_output, biasGradient_output
 
-    def train_epoch(self, X, y, learning_rate=0.01, **kwargs):
+    def train_epoch(self, X, y, learning_rate=0.001):
         """
         Don't forget to return the loss of the epoch.
         """
 
         losses = []
-        clip_value = 10.0  # Gradient clipping threshold
+        clip_value = 5.0  # Gradient clipping threshold
+
         for i in range(len(X)):
-            z_hidden, y_hidden, z_hat, y_hat = self.forward(X[i])
-
-            if np.isinf(z_hidden).any():
-                print(f'Ending after forward pass due to inf values in hidden layer in epoch {i}')
-                exit()
-
+            x = X[i].reshape(-1, 1)
+            z_hidden, y_hidden, z_hat, y_hat = self.forward(x)
             losses.append(self.crossEntropy(y[i], y_hat))
 
-            outputGradient = self.lossGradientAtOutputPreActivation(y_hat, y)
-            weightGradient = self.weights
-            biasGradient = self.bias
+            gradients = self.backPropagate(y_hat, z_hat, y_hidden, z_hidden, x, y[i])
 
-            weightGradient[1] = np.dot(outputGradient, np.transpose(y_hidden))
-            biasGradient[1] = outputGradient
+            # Clip gradients to prevent exploding gradients
+            gradients = [np.clip(g, -clip_value, clip_value) for g in gradients]
 
-            hDerivative = np.dot(np.transpose(self.weights[1]), outputGradient)
+            # Apply gradients
+            self.weights[0] -= learning_rate * gradients[0]
+            self.bias[0] -= learning_rate * gradients[1]
+            self.weights[1] -= learning_rate * gradients[2]
+            self.bias[1] -= learning_rate * gradients[3]
 
-            outputGradient = np.multiply(hDerivative, self.reluDerivative(z_hidden))
-
-            weightGradient[0] = np.dot(outputGradient, np.transpose(X[i].reshape(-1, 1)))
-            biasGradient[0] = outputGradient
-
-            weightGradient[1] = np.clip(weightGradient[1], -clip_value, clip_value)
-            weightGradient[0] = np.clip(weightGradient[0], -clip_value, clip_value)
-            biasGradient[1] = np.clip(biasGradient[1], -clip_value, clip_value)
-            biasGradient[0] = np.clip(biasGradient[0], -clip_value, clip_value)
-
-
-            self.weights[1] += weightGradient[1] * learning_rate
-            self.weights[0] += weightGradient[0] * learning_rate
-            self.bias[1] += biasGradient[1] * learning_rate
-            self.bias[0] += biasGradient[0] * learning_rate
-
-        return np.sum(losses) / len(losses)
+        return np.mean(losses)
 
 
 def plot(epochs, train_accs, val_accs, filename=None):
