@@ -185,7 +185,7 @@ class MLP(object):
             gradients = self.backPropagate(y_hat, z_hat, y_hidden, z_hidden, x, y[i])
 
             # Clip gradients to prevent exploding gradients
-            gradients = [np.clip(g, -clip_value, clip_value) for g in gradients]
+            # gradients = [np.clip(g, -clip_value, clip_value) for g in gradients]
 
             # Apply gradients
             self.weights[0] -= learning_rate * gradients[0]
