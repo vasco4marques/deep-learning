@@ -13,7 +13,6 @@ import numpy as np
 
 import utils
 
-
 class ConvBlock(nn.Module):
     def __init__(
             self,
@@ -31,23 +30,27 @@ class ConvBlock(nn.Module):
         
         self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size = kernel_size, stride = 1, padding = 1)
 
+        self.batch_normalization = nn.BatchNorm2d(out_channels) if batch_norm else nn.Identity()
+
         self.activation = nn.ReLU()
 
-        self.maxpool = nn.MaxPool2d(kernel_size=2, stride = 2) if maxpool else None
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride = 2) if maxpool else nn.Identity()
 
-        self.dropout = nn.Dropout2d(dropout) if dropout > 0.0 else None
+        self.dropout = nn.Dropout2d(dropout) if dropout > 0.0 else nn.Identity()
         # Q2.2 Initialize batchnorm layer 
         
     def forward(self, x):
         # input for convolution is [b, c, w, h]
         
         x = self.conv(x)
+
+        x = self.batch_normalization(x) 
                 
         x = self.activation(x)
       
-        x = self.maxpool(x) if self.maxpool else None
+        x = self.maxpool(x) 
         
-        x = self.dropout(x) if self.dropout  else None
+        x = self.dropout(x)
         
         return x
 
@@ -56,24 +59,25 @@ class ConvBlock(nn.Module):
 class CNN(nn.Module):
     def __init__(self, dropout_prob, maxpool=True, batch_norm=True, conv_bias=True):
         super(CNN, self).__init__()
+        
         channels = [3, 32, 64, 128]
+        
         fc1_out_dim = 1024
         fc2_out_dim = 512
-        self.maxpool = maxpool
-        self.batch_norm = batch_norm
 
         # Initialize convolutional blocks
-        self.conv1 = ConvBlock(in_channels=channels[0], out_channels=channels[1], dropout = dropout_prob)
-        self.conv2 = ConvBlock(in_channels=channels[1], out_channels=channels[2], dropout = dropout_prob)
-        self.conv3 = ConvBlock(in_channels=channels[2], out_channels=channels[3], dropout = dropout_prob)
-        
-      
+        self.conv1 = ConvBlock(in_channels=channels[0], out_channels=channels[1], dropout = dropout_prob, maxpool=maxpool)
+        self.conv2 = ConvBlock(in_channels=channels[1], out_channels=channels[2], dropout = dropout_prob, maxpool=maxpool)
+        self.conv3 = ConvBlock(in_channels=channels[2], out_channels=channels[3], dropout = dropout_prob, maxpool=maxpool)
 
-        # Initialize layers for the MLP block
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
 
-        self.layer1 = nn.Linear(channels[3], fc1_out_dim)
-        self.layer2 = nn.Linear(fc1_out_dim, fc2_out_dim)
-        self.layer3 = nn.Linear(fc2_out_dim, 8)
+        self.fc1 = nn.Linear(channels[3], fc1_out_dim)
+        self.fc2 = nn.Linear(fc1_out_dim, fc2_out_dim)
+        self.fc3 = nn.Linear(fc2_out_dim, 8)
+
+        self.bn_fc1 = nn.BatchNorm1d(fc1_out_dim) if batch_norm else nn.Identity()
+        self.bn_fc2 = nn.BatchNorm1d(fc2_out_dim) if batch_norm else nn.Identity()
 
         self.dropout = nn.Dropout(p=dropout_prob)
         
@@ -89,19 +93,23 @@ class CNN(nn.Module):
         x = self.conv2(x)
         x = self.conv3(x)
 
-        # Flattent output of the last conv block
-        x = x.view(x.size(0), -1)
+        # Flattent output of the last conv block / adaptive pooling
+        x = self.global_avg_pool(x)
+        x = torch.flatten(x, 1)
         
         # Implement MLP part
     
-        x = F.relu(self.layer1(x))
+        x = self.fc1(x)
+        x = self.bn_fc1(x)
+        x = F.relu(x)
         x = self.dropout(x)
 
-        x = F.relu(self.layer1(x))
-        x = self.layer3(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+
+        x = self.fc3(x)
         # For Q2.2 implement global averag pooling
         
-
         return F.log_softmax(x, dim=1)
  
 
@@ -156,7 +164,8 @@ def plot(epochs, plottable, ylabel='', name=''):
 
 
 def get_number_trainable_params(model):
-    raise NotImplementedError
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 
 def plot_file_name_sufix(opt, exlude):
