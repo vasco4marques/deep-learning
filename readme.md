@@ -16,6 +16,10 @@ Lembrei me quando estava a fazer o Q1.3 que não sei se tenho de por os bias no 
 
 # Q2.1 a)
 
+    lr 0.00001 - 19sec - val acc: 0.4694 - test acc: 0.46234
+    lr 0.001 -20 sec - val acc: 0.5264 - test acc: 0.5247
+    lr 0.1 - 19 sec - val acc: 0.3533 - test acc: 0.3580
+
     The learning rate that achieved the highst validation accuracy was the 0.001 with a validation accuracy of 0.5264.
 
     For the learning rate of 0.1, we have a highly unstable validation loss, flucutaitng throughout the trainning process. With this we can understand that the learning rate is too high and the model cannot adapt to the validation set.
@@ -33,6 +37,9 @@ Lembrei me quando estava a fazer o Q1.3 que não sei se tenho de por os bias no 
 - Batch 512 - 2m 5s
     - val acc 0.5306
     - test acc 0.5443
+
+
+
 
 # Q2.2 b)
 
