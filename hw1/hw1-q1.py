@@ -147,7 +147,6 @@ class MLP(object):
         X (n_examples x n_features)
         y (n_examples): gold labels
         """
-        # Identical to LinearModel.evaluate()
         y_hat = self.predict(X)
         n_correct = (y == y_hat).sum()
         n_possible = y.shape[0]
@@ -177,7 +176,6 @@ class MLP(object):
         """
 
         losses = []
-        clip_value = 5.0  # Gradient clipping threshold
 
         for i in range(len(X)):
             x = X[i].reshape(-1, 1)
@@ -185,9 +183,6 @@ class MLP(object):
             losses.append(self.crossEntropy(y[i], y_hat))
 
             gradients = self.backPropagate(y_hat, z_hat, y_hidden, z_hidden, x, y[i])
-
-            # Clip gradients to prevent exploding gradients
-            # gradients = [np.clip(g, -clip_value, clip_value) for g in gradients]
 
             # Apply gradients
             self.weights[0] -= learning_rate * gradients[0]
