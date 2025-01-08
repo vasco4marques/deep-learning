@@ -34,9 +34,9 @@ class ConvBlock(nn.Module):
 
         self.activation = nn.ReLU()
 
-        self.maxpool = nn.MaxPool2d(kernel_size=2, stride = 2) if maxpool else nn.Identity()
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride = 2)
 
-        self.dropout = nn.Dropout2d(dropout) if dropout > 0.0 else nn.Identity()
+        self.dropout = nn.Dropout2d(dropout)
         # Q2.2 Initialize batchnorm layer 
         
     def forward(self, x):
@@ -66,15 +66,15 @@ class CNN(nn.Module):
         fc2_out_dim = 512
 
         # Initialize convolutional blocks
-        self.conv1 = ConvBlock(in_channels=channels[0], out_channels=channels[1], dropout = dropout_prob, maxpool=maxpool)
-        self.conv2 = ConvBlock(in_channels=channels[1], out_channels=channels[2], dropout = dropout_prob, maxpool=maxpool)
-        self.conv3 = ConvBlock(in_channels=channels[2], out_channels=channels[3], dropout = dropout_prob, maxpool=maxpool)
+        self.conv1 = ConvBlock(in_channels=channels[0], out_channels=channels[1], dropout = dropout_prob, maxpool=maxpool, batch_norm=batch_norm)
+        self.conv2 = ConvBlock(in_channels=channels[1], out_channels=channels[2], dropout = dropout_prob, maxpool=maxpool, batch_norm=batch_norm)
+        self.conv3 = ConvBlock(in_channels=channels[2], out_channels=channels[3], dropout = dropout_prob, maxpool=maxpool, batch_norm=batch_norm)
 
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
 
         self.fc1 = nn.Linear(channels[3], fc1_out_dim)
         self.fc2 = nn.Linear(fc1_out_dim, fc2_out_dim)
-        self.fc3 = nn.Linear(fc2_out_dim, 8)
+        self.fc3 = nn.Linear(fc2_out_dim, 6) # 6 classes
 
         self.bn_fc1 = nn.BatchNorm1d(fc1_out_dim) if batch_norm else nn.Identity()
         self.bn_fc2 = nn.BatchNorm1d(fc2_out_dim) if batch_norm else nn.Identity()
@@ -94,6 +94,7 @@ class CNN(nn.Module):
         x = self.conv3(x)
 
         # Flattent output of the last conv block / adaptive pooling
+        # x = x.view(x.size(0), -1)
         x = self.global_avg_pool(x)
         x = torch.flatten(x, 1)
         
@@ -105,7 +106,9 @@ class CNN(nn.Module):
         x = self.dropout(x)
 
         x = self.fc2(x)
+        x = self.bn_fc2(x)
         x = F.relu(x)
+        x = self.dropout(x)
 
         x = self.fc3(x)
         # For Q2.2 implement global averag pooling
