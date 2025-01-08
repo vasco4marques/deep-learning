@@ -60,22 +60,20 @@ class LogisticRegression(LinearModel):
         y_i: the gold label for that example
         learning_rate (float): keep it at the default value for your plots
         """
-        x_i = x_i.reshape(-1,1)
+        label_scores = np.expand_dims(np.dot(self.W,x_i), axis = 1) 
 
-        label_scores = np.dot(self.W, x_i)
-
-        exp_scores = np.exp(label_scores - np.max(label_scores))
-        label_probabilities =  exp_scores / np.sum(exp_scores, axis=0, keepdims=True)
-
-        y_one_hot = np.zeros_like(label_probabilities)
+        y_one_hot = np.zeros((np.size(self.W, 0),1))
         y_one_hot[y_i] = 1
 
-        gradient = np.dot((label_probabilities - y_one_hot), x_i.T)
+        label_probabilities = np.exp(label_scores) / np.sum(np.exp(label_scores))
 
-        if (l2_penalty > 0):
-            gradient += l2_penalty * self.W
+        gradient = (y_one_hot - label_probabilities).dot(np.expand_dims(x_i, axis = 1).T) 
 
-        self.W -= learning_rate * gradient
+        if l2_penalty > 0:
+            gradient += l2_penalty * (np.sum(self.W**2))
+
+        self.W = self.W + (learning_rate * gradient) 
+
 
 class MLP(object):
 
@@ -147,6 +145,7 @@ class MLP(object):
         X (n_examples x n_features)
         y (n_examples): gold labels
         """
+        # Identical to LinearModel.evaluate()
         y_hat = self.predict(X)
         n_correct = (y == y_hat).sum()
         n_possible = y.shape[0]
@@ -176,6 +175,7 @@ class MLP(object):
         """
 
         losses = []
+        clip_value = 5.0  # Gradient clipping threshold
 
         for i in range(len(X)):
             x = X[i].reshape(-1, 1)
@@ -183,6 +183,9 @@ class MLP(object):
             losses.append(self.crossEntropy(y[i], y_hat))
 
             gradients = self.backPropagate(y_hat, z_hat, y_hidden, z_hidden, x, y[i])
+
+            # Clip gradients to prevent exploding gradients
+            # gradients = [np.clip(g, -clip_value, clip_value) for g in gradients]
 
             # Apply gradients
             self.weights[0] -= learning_rate * gradients[0]
