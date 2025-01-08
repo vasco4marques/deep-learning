@@ -20,8 +20,12 @@ class BahdanauAttention(nn.Module):
 
     def __init__(self, hidden_size):
         super(BahdanauAttention, self).__init__()
-        
-        raise NotImplementedError("Add your implementation.")
+    
+        self.Ws = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.Wh = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.v = nn.Linear(hidden_size, 1, bias=False)
+
+        self.Wout = nn.Linear(2 * hidden_size, hidden_size, bias=False)
 
     def forward(self, query, encoder_outputs, src_lengths):
         """
@@ -31,14 +35,32 @@ class BahdanauAttention(nn.Module):
         Returns:
             attn_out:   (batch_size, max_tgt_len, hidden_size) - attended vector
         """
+        # eti
+        scores = self.v(torch.tanh(self.Ws(query) + self.Wh(encoder_outputs)))
+        scores = scores.squeeze(-1) 
 
-        raise NotImplementedError("Add your implementation.")
+        mask = self.sequence_mask(src_lengths).to(scores.device)
+        scores.masked_fill_(~mask, float('-inf'))
+
+        # αti
+        attn_weights = torch.softmax(scores, dim=-1) 
+
+        #ct
+        context = torch.bmm(attn_weights.unsqueeze(1), encoder_outputs)
+
+        # [ct; ht]
+        attn_out = torch.cat((context, query), dim=-1)
+        attn_out = torch.tanh(self.Wout(attn_out))
+
+        return attn_out
+        
 
     def sequence_mask(self, lengths):
         """
         Creates a boolean mask from sequence lengths.
         True for valid positions, False for padding.
         """
+        
         batch_size = lengths.numel()
         max_len = lengths.max()
         return (torch.arange(max_len, device=lengths.device)
@@ -88,6 +110,23 @@ class Encoder(nn.Module):
         #   (after passing them to the LSTM)
         #############################################
         
+        x = self.embedding(src)
+
+        x = self.dropout(x)
+        
+        packed_sequence = torch.nn.utils.rnn.pack_padded_sequence(
+            x,
+            lengths,
+            batch_first=True,
+            enforce_sorted=False
+        )
+        
+        output, final_hidden = self.lstm(packed_sequence)
+    	
+        (enc_output, lengths) = torch.nn.utils.rnn.pad_packed_sequence(
+            output,
+            batch_first=True
+        )
 
         #############################################
         # END OF YOUR CODE
@@ -95,7 +134,7 @@ class Encoder(nn.Module):
         # enc_output: (batch_size, max_src_len, hidden_size)
         # final_hidden: tuple with 2 tensors
         # each tensor is (num_layers * num_directions, batch_size, hidden_size)
-        raise NotImplementedError("Add your implementation.")
+        return enc_output, final_hidden
 
 
 class Decoder(nn.Module):
@@ -158,7 +197,46 @@ class Decoder(nn.Module):
         #         src_lengths,
         #     )
         #############################################
+
+        x = self.embedding(tgt)
+        x = self.dropout(x)
+
+        hidden_state = dec_state
+
+        outputs = []
+
+        if tgt.shape[1] > 1: 
         
+            for i in range(tgt.shape[1]-1):
+
+                x_i = x[:, i].unsqueeze(1)
+                
+                output, hidden_state = self.lstm(x_i, hidden_state) 
+
+                if self.attn is not None:
+                    output = self.attn(
+                        output,
+                        encoder_outputs,
+                        src_lengths,
+                        )
+                
+                output = self.dropout(output)
+
+                outputs.append(output)
+
+            outputs = torch.cat(outputs, dim=1)
+        else:
+                        
+            outputs, hidden_state = self.lstm(x, hidden_state) 
+
+            if self.attn is not None:
+                outputs = self.attn(
+                    outputs,
+                    encoder_outputs,
+                    src_lengths,
+                    )
+            
+            outputs = self.dropout(outputs)
 
         #############################################
         # END OF YOUR CODE
@@ -166,8 +244,8 @@ class Decoder(nn.Module):
         # outputs: (batch_size, max_tgt_len, hidden_size)
         # dec_state: tuple with 2 tensors
         # each tensor is (num_layers, batch_size, hidden_size)
-        raise NotImplementedError("Add your implementation.")
-
+        return outputs, hidden_state           
+        
 
 class Seq2Seq(nn.Module):
     def __init__(

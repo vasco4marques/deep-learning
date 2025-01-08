@@ -230,8 +230,25 @@ def nucleus_sampling(logits, p=0.8):
     # This is equivalent to selecting the tokens with highest probabilities, whose cumulative probability mass equals or exceeds p.
     # 3. Rescale the distribution and sample from the resulting set of tokens.
     # Implementation of the steps as described above:
+    
+    probs = torch.softmax(logits, dim=-1)
 
-    raise NotImplementedError("Add your implementation.")
+    sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+
+    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+
+    #Descobre o primeiro indice de onde a probabiliade cumultive e maior que p
+    cutoff_idx = torch.where(cumulative_probs >= p)[0][0].item() 
+
+    nucleus_probs = sorted_probs[:cutoff_idx + 1]
+    nucleus_indices = sorted_indices[:cutoff_idx + 1]
+
+    nucleus_probs /= nucleus_probs.sum()
+
+    sampled_index = torch.multinomial(nucleus_probs, 1).item()
+    next_token = nucleus_indices[sampled_index]
+
+    return next_token
 
 
 def main(args):
