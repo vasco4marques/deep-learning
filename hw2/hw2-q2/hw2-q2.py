@@ -72,7 +72,8 @@ class CNN(nn.Module):
 
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
 
-        self.fc1 = nn.Linear(channels[3], fc1_out_dim)
+        # self.fc1 = nn.Linear(6 * 6 * channels[3], fc1_out_dim) #Usar quando se tem flattening 
+        self.fc1 = nn.Linear(channels[3], fc1_out_dim) #Usar quando se tem average pool
         self.fc2 = nn.Linear(fc1_out_dim, fc2_out_dim)
         self.fc3 = nn.Linear(fc2_out_dim, 6) # 6 classes
 
@@ -94,9 +95,9 @@ class CNN(nn.Module):
         x = self.conv3(x)
 
         # Flattent output of the last conv block / adaptive pooling
-        # x = x.view(x.size(0), -1)
-        x = self.global_avg_pool(x)
-        x = torch.flatten(x, 1)
+        # x = x.view(x.size(0), -1) #Usar quando se tem flattening
+        x = self.global_avg_pool(x) #Usar quando se tem average pool
+        x = torch.flatten(x, 1) #Usar quando se tem average pool
         
         # Implement MLP part
     

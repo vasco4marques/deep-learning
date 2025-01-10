@@ -127,6 +127,8 @@ class Encoder(nn.Module):
             output,
             batch_first=True
         )
+        
+        enc_output = self.dropout(enc_output)
 
         #############################################
         # END OF YOUR CODE
