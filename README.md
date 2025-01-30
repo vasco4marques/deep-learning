@@ -1,5 +1,4 @@
-# Deep Learning Goat class
+# IST Deep Learning 2024/2025
 
-Boas Gonçalo este repo é para AP :3
-
-Ziga ziga
+Homework 1 - Grade: 14,4
+Homework 2 - Grade: 18
